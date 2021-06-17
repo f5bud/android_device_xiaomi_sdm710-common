@@ -17,6 +17,9 @@
 #ifndef VENDOR_LINEAGE_BIOMETRICS_FINGERPRINT_INSCREEN_V1_0_FINGERPRINTINSCREEN_H
 #define VENDOR_LINEAGE_BIOMETRICS_FINGERPRINT_INSCREEN_V1_0_FINGERPRINTINSCREEN_H
 
+#include <android-base/logging.h>
+#include <hidl/HidlTransportSupport.h>
+
 #include <vendor/lineage/biometrics/fingerprint/inscreen/1.0/IFingerprintInscreen.h>
 #include <vendor/xiaomi/hardware/fingerprintextension/1.0/IXiaomiFingerprint.h>
 
@@ -28,14 +31,20 @@ namespace inscreen {
 namespace V1_0 {
 namespace implementation {
 
-using ::android::sp;
-using ::android::hardware::Return;
-using ::android::hardware::Void;
-using ::vendor::xiaomi::hardware::fingerprintextension::V1_0::IXiaomiFingerprint;
+using vendor::xiaomi::hardware::fingerprintextension::V1_0::IXiaomiFingerprint;
+using vendor::lineage::biometrics::fingerprint::inscreen::V1_0::IFingerprintInscreen;
+using android::hardware::Return;
+using android::hardware::Void;
 
-class FingerprintInscreen : public IFingerprintInscreen {
-  public:
+using android::sp;
+using android::OK;
+using android::status_t;
+
+class FingerprintInscreen : public IFingerprintInscreen
+{
+public:
     FingerprintInscreen();
+
     Return<int32_t> getPositionX() override;
     Return<int32_t> getPositionY() override;
     Return<int32_t> getSize() override;
@@ -52,9 +61,11 @@ class FingerprintInscreen : public IFingerprintInscreen {
     Return<bool> shouldBoostBrightness() override;
     Return<void> setCallback(const sp<IFingerprintInscreenCallback>& callback) override;
 
-  private:
+private:
     sp<IXiaomiFingerprint> xiaomiFingerprintService;
-    int32_t fodPosX, fodPosY, fodSize;
+
+    std::mutex mCallbackLock;
+    sp<IFingerprintInscreenCallback> mCallback;
 };
 
 }  // namespace implementation

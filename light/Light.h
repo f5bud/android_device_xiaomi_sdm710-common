@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2018-2020 The LineageOS Project
+ * Copyright (C) 2018 The LineageOS Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,7 +13,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 #ifndef ANDROID_HARDWARE_LIGHT_V2_0_LIGHT_H
 #define ANDROID_HARDWARE_LIGHT_V2_0_LIGHT_H
 
@@ -45,18 +44,12 @@ class Light : public ILight {
     Return<void> getSupportedTypes(getSupportedTypes_cb _hidl_cb) override;
 
   private:
-    void handleBattery(int led, const LightState& state);
-    void handleNotification(int led, const LightState& state, size_t index);
-
-    template <typename T>
-    void setLedParam(int led, const std::string& param, const T& value);
-
-    typedef std::function<void(int, const LightState&)> lightHandler;
+    void handleBacklight(const LightState& state);
+    void handleRgb(const LightState& state, size_t index);
 
     std::mutex mLock;
-    std::unordered_map<Type, lightHandler> mLights;
-    std::array<LightState, 2> mLightStates;
-    std::vector<std::string> mLeds;
+    std::unordered_map<Type, std::function<void(const LightState&)>> mLights;
+    std::array<LightState, 3> mLightStates;
 };
 
 }  // namespace implementation

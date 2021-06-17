@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019-2020 The LineageOS Project
+ * Copyright (C) 2019 The LineageOS Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,19 +18,21 @@
 
 #include "FingerprintInscreen.h"
 
-#include <android-base/logging.h>
-#include <android-base/parseint.h>
-#include <android-base/properties.h>
-#include <android-base/strings.h>
-
-#include <cmath>
 #include <fstream>
+#include <cmath>
+#include <thread>
+
+#include <fcntl.h>
+#include <poll.h>
+#include <sys/stat.h>
 
 #define COMMAND_NIT 10
-#define PARAM_NIT_630_FOD 1
+#define PARAM_NIT_FOD 1
 #define PARAM_NIT_NONE 0
 
-#define DISPPARAM_PATH "/sys/devices/platform/soc/ae00000.qcom,mdss_mdp/drm/card0/card0-DSI-1/disp_param"
+//#define DISPPARAM_PATH "/sys/devices/platform/soc/ae00000.qcom,mdss_mdp/drm/card0/card0-DSI-1/disp_param"
+
+#define DISPPARAM_PATH "/sys/class/drm/card0-DSI-1/disp_param"
 #define DISPPARAM_HBM_FOD_ON "0x20000"
 #define DISPPARAM_HBM_FOD_OFF "0xE0000"
 
@@ -38,54 +40,11 @@
 #define FOD_STATUS_ON 1
 #define FOD_STATUS_OFF 0
 
-#define FOD_DEFAULT_X 445
-#define FOD_DEFAULT_Y 1910
-#define FOD_DEFAULT_SIZE 190
+#define FOD_UI_PATH "/sys/devices/platform/soc/soc:qcom,dsi-display-primary/fod_ui"
 
-namespace {
-
-template <typename T>
-static void set(const std::string& path, const T& value) {
-    std::ofstream file(path);
-    file << value;
-}
-
-static std::vector<std::string> GetListProperty(const std::string& key)
-{
-    return android::base::Split(android::base::GetProperty(key, ""), ",");
-}
-
-template <typename T>
-static std::vector<T> GetIntListProperty(const std::string& key,
-                                         const std::vector<T> default_values,
-                                         T min = std::numeric_limits<T>::min(),
-                                         T max = std::numeric_limits<T>::max())
-{
-    std::vector<std::string> strings = GetListProperty(key);
-    std::vector<std::string>::const_iterator it;
-    std::vector<T> values;
-    T value;
-
-    if (strings.size() != default_values.size())
-            goto unexpected;
-
-    for (it = strings.begin(); it != strings.end(); it++) {
-        if (!android::base::ParseInt(*it, &value, min, max))
-                goto unexpected;
-
-        values.push_back(value);
-    }
-
-    return values;
-
-unexpected:
-    LOG(WARNING) << "property '" << key
-                 << "' does not exist or has an unexpected value\n";
-
-    return default_values;
-}
-
-}  // anonymous namespace
+#define FOD_SENSOR_X 445
+#define FOD_SENSOR_Y 1910
+#define FOD_SENSOR_SIZE 190
 
 namespace vendor {
 namespace lineage {
@@ -95,99 +54,138 @@ namespace inscreen {
 namespace V1_0 {
 namespace implementation {
 
-FingerprintInscreen::FingerprintInscreen() {
+template <typename T> static void set(const std::string& path, const T& value)
+{
+    std::ofstream file(path);
+    file << value;
+}
+
+FingerprintInscreen::FingerprintInscreen()
+{
     xiaomiFingerprintService = IXiaomiFingerprint::getService();
+/*
+    std::thread([this]()
+    {
+        struct pollfd fodUiPoll =
+        {
+            .fd = open(FOD_UI_PATH, O_RDONLY),
+            .events = POLLERR | POLLPRI,
+            .revents = 0,
+        };
 
-    std::vector<int32_t> ints { FOD_DEFAULT_X, FOD_DEFAULT_Y };
+        while (fodUiPoll.fd > 0)
+        {
+            char c = '0';
 
-    ints = GetIntListProperty("persist.vendor.sys.fp.fod.location.X_Y", ints);
-    fodPosX = ints[0];
-    fodPosY = ints[1];
+            if (poll(&(fodUiPoll), 1, -1) < 0) continue;
 
-    ints = { FOD_DEFAULT_SIZE, FOD_DEFAULT_SIZE };
-    ints = GetIntListProperty("persist.vendor.sys.fp.fod.size.width_height", ints);
-    if (ints[0] != ints[1])
-           LOG(WARNING) << "FoD size should be square but it is not (width = "
-                        << ints[0] << ", height = " << ints[1] << "\n";
-    fodSize = std::max(ints[0], ints[1]);
+            lseek(fodUiPoll.fd, 0, SEEK_SET);
+            read(fodUiPoll.fd, &(c), sizeof(c));
 
-    LOG(INFO) << "FoD is located at " << fodPosX << "," << fodPosY
-              << " with size " << fodSize << "pixels\n";
+            xiaomiFingerprintService->extCmd(COMMAND_NIT, (c != '0') ? PARAM_NIT_FOD : PARAM_NIT_NONE);
+        }
+
+    }).detach();
+*/
 }
 
-Return<int32_t> FingerprintInscreen::getPositionX() {
-    return fodPosX;
+Return<int32_t> FingerprintInscreen::getPositionX()
+{
+    return FOD_SENSOR_X;
 }
 
-Return<int32_t> FingerprintInscreen::getPositionY() {
-    return fodPosY;
+Return<int32_t> FingerprintInscreen::getPositionY()
+{
+    return FOD_SENSOR_Y;
 }
 
-Return<int32_t> FingerprintInscreen::getSize() {
-    return fodSize;
+Return<int32_t> FingerprintInscreen::getSize()
+{
+    return FOD_SENSOR_SIZE;
 }
 
-Return<void> FingerprintInscreen::onStartEnroll() {
-    return Void();
-}
-
-Return<void> FingerprintInscreen::onFinishEnroll() {
-    return Void();
-}
-
-Return<void> FingerprintInscreen::onPress() {
-    set(DISPPARAM_PATH, DISPPARAM_HBM_FOD_ON);
-    xiaomiFingerprintService->extCmd(COMMAND_NIT, PARAM_NIT_630_FOD);
-    return Void();
-}
-
-Return<void> FingerprintInscreen::onRelease() {
-    set(DISPPARAM_PATH, DISPPARAM_HBM_FOD_OFF);
-    xiaomiFingerprintService->extCmd(COMMAND_NIT, PARAM_NIT_NONE);
-    return Void();
-}
-
-Return<void> FingerprintInscreen::onShowFODView() {
+Return<void> FingerprintInscreen::onShowFODView()
+{
     set(FOD_STATUS_PATH, FOD_STATUS_ON);
+
     return Void();
 }
 
-Return<void> FingerprintInscreen::onHideFODView() {
+Return<void> FingerprintInscreen::onHideFODView()
+{
     set(FOD_STATUS_PATH, FOD_STATUS_OFF);
+
     return Void();
 }
 
-Return<bool> FingerprintInscreen::handleAcquired(int32_t acquiredInfo, int32_t vendorCode) {
-    LOG(ERROR) << "acquiredInfo: " << acquiredInfo << ", vendorCode: " << vendorCode << "\n";
-    return false;
-}
+Return<void> FingerprintInscreen::onPress()
+{
+    set(DISPPARAM_PATH, DISPPARAM_HBM_FOD_ON);
 
-Return<bool> FingerprintInscreen::handleError(int32_t error, int32_t vendorCode) {
-    LOG(ERROR) << "error: " << error << ", vendorCode: " << vendorCode << "\n";
-    return false;
-}
+    xiaomiFingerprintService->extCmd(COMMAND_NIT, PARAM_NIT_FOD);
 
-Return<void> FingerprintInscreen::setLongPressEnabled(bool) {
     return Void();
 }
 
-Return<int32_t> FingerprintInscreen::getDimAmount(int32_t brightness) {
-    float alpha;
+Return<void> FingerprintInscreen::onRelease()
+{
+    set(DISPPARAM_PATH, DISPPARAM_HBM_FOD_OFF);
 
-    if (brightness > 62) {
-        alpha = 1.0 - pow(brightness / 255.0 * 430.0 / 600.0, 0.45);
-    } else {
-        alpha = 1.0 - pow(brightness / 200.0, 0.45);
+    xiaomiFingerprintService->extCmd(COMMAND_NIT, PARAM_NIT_NONE);
+
+    return Void();
+}
+
+Return<void> FingerprintInscreen::onStartEnroll()
+{
+    return Void();
+}
+
+Return<void> FingerprintInscreen::onFinishEnroll()
+{
+    return Void();
+}
+
+Return<bool> FingerprintInscreen::handleAcquired(int32_t acquiredInfo, int32_t vendorCode)
+{
+    std::lock_guard<std::mutex> _lock(mCallbackLock);
+
+    if ((mCallback != nullptr) && (acquiredInfo == 6))
+    {
+        if (vendorCode == 22) return mCallback->onFingerDown().isOk();
+        if (vendorCode == 23) return mCallback->onFingerUp().isOk();
     }
 
-    return 255 * alpha;
-}
-
-Return<bool> FingerprintInscreen::shouldBoostBrightness() {
     return false;
 }
 
-Return<void> FingerprintInscreen::setCallback(const sp<IFingerprintInscreenCallback>& /* callback */) {
+Return<bool> FingerprintInscreen::handleError(int32_t, int32_t) //(int32_t error, int32_t vendorCode)
+{
+    return false;
+}
+
+Return<void> FingerprintInscreen::setLongPressEnabled(bool)
+{
+    return Void();
+}
+
+Return<int32_t> FingerprintInscreen::getDimAmount(int32_t brightness)
+{
+    LOG(INFO) << "FingerprintInscreen.brightness: " << brightness;
+
+    return 255 - brightness; //230;
+}
+
+Return<bool> FingerprintInscreen::shouldBoostBrightness()
+{
+    return true;
+}
+
+Return<void> FingerprintInscreen::setCallback(const sp<IFingerprintInscreenCallback>& callback)
+{
+    std::lock_guard<std::mutex> _lock(mCallbackLock);
+    mCallback = callback;
+    
     return Void();
 }
 
