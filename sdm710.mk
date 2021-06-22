@@ -178,13 +178,20 @@ PRODUCT_PACKAGES += \
     libgnsspps
 
 PRODUCT_PACKAGES += \
-    android.hardware.gnss@2.0-impl-qti \
-    android.hardware.gnss@2.0-service-qti
+    android.hardware.gnss@2.1-impl-qti \
+    android.hardware.gnss@2.1-service-qti
+
+PRODUCT_PACKAGES += \
+    gps.conf \
+    flp.conf \
+    gnss_antenna_info.conf \
+    gnss@2.0-base.policy \
+    gnss@2.0-xtra-daemon.policy \
+    gnss@2.0-xtwifi-client.policy \
+    gnss@2.0-xtwifi-inet-agent.policy
 
 PRODUCT_COPY_FILES += \
     $(LOCAL_PATH)/gps/etc/apdr.conf:$(TARGET_COPY_OUT_VENDOR)/etc/apdr.conf \
-    $(LOCAL_PATH)/gps/etc/flp.conf:$(TARGET_COPY_OUT_VENDOR)/etc/flp.conf \
-    $(LOCAL_PATH)/gps/etc/gps.conf:$(TARGET_COPY_OUT_VENDOR)/etc/gps.conf \
     $(LOCAL_PATH)/gps/etc/izat.conf:$(TARGET_COPY_OUT_VENDOR)/etc/izat.conf \
     $(LOCAL_PATH)/gps/etc/lowi.conf:$(TARGET_COPY_OUT_VENDOR)/etc/lowi.conf \
     $(LOCAL_PATH)/gps/etc/sap.conf:$(TARGET_COPY_OUT_VENDOR)/etc/sap.conf \
@@ -244,6 +251,10 @@ PRODUCT_COPY_FILES += \
 PRODUCT_PACKAGES += \
     android.hardware.light@2.0-service.xiaomi_sdm710
 
+# LiveDisplay
+PRODUCT_PACKAGES += \
+    vendor.lineage.livedisplay@2.0-service-sdm
+
 # Media
 PRODUCT_PACKAGES += \
     libavservices_minijail \
@@ -279,7 +290,7 @@ PRODUCT_PACKAGES += \
 # Power
 PRODUCT_PACKAGES += \
     android.hardware.power-service-qti \
-#    android.hardware.power.stats@1.0-service.mock \
+    android.hardware.power.stats@1.0-service.mock \
     vendor.qti.hardware.perf@2.2.vendor
 
 #PRODUCT_COPY_FILES += \

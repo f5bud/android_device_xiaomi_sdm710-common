@@ -30,17 +30,17 @@
 #define PARAM_NIT_FOD 1
 #define PARAM_NIT_NONE 0
 
-//#define DISPPARAM_PATH "/sys/devices/platform/soc/ae00000.qcom,mdss_mdp/drm/card0/card0-DSI-1/disp_param"
+static constexpr const char* kDispParamPath = "/sys/class/drm/card0-DSI-1/disp_param";
 
-#define DISPPARAM_PATH "/sys/class/drm/card0-DSI-1/disp_param"
-#define DISPPARAM_HBM_FOD_ON "0x20000"
-#define DISPPARAM_HBM_FOD_OFF "0xE0000"
+static constexpr const char* kDispParamHbmFodOff = "0xE0000";
+static constexpr const char* kDispParamHbmFodOn  = "0x20000";
 
-#define FOD_STATUS_PATH "/sys/devices/virtual/touch/tp_dev/fod_status"
-#define FOD_STATUS_ON 1
-#define FOD_STATUS_OFF 0
+static constexpr const char* kFodStatusPath = "/sys/devices/virtual/touch/tp_dev/fod_status";
 
-#define FOD_UI_PATH "/sys/devices/platform/soc/soc:qcom,dsi-display-primary/fod_ui"
+static constexpr const int kFodStatusOn  = 1;
+static constexpr const int kFodStatusOff = 0;
+
+//static constexpr const char* kFodUiPath = "/sys/devices/platform/soc/soc:qcom,dsi-display-primary/fod_ui";
 
 #define FOD_SENSOR_X 445
 #define FOD_SENSOR_Y 1910
@@ -68,7 +68,7 @@ FingerprintInscreen::FingerprintInscreen()
     {
         struct pollfd fodUiPoll =
         {
-            .fd = open(FOD_UI_PATH, O_RDONLY),
+            .fd = open(kFodUiPath, O_RDONLY),
             .events = POLLERR | POLLPRI,
             .revents = 0,
         };
@@ -106,21 +106,21 @@ Return<int32_t> FingerprintInscreen::getSize()
 
 Return<void> FingerprintInscreen::onShowFODView()
 {
-    set(FOD_STATUS_PATH, FOD_STATUS_ON);
+    set(kFodStatusPath, kFodStatusOn);
 
     return Void();
 }
 
 Return<void> FingerprintInscreen::onHideFODView()
 {
-    set(FOD_STATUS_PATH, FOD_STATUS_OFF);
+    set(kFodStatusPath, kFodStatusOff);
 
     return Void();
 }
 
 Return<void> FingerprintInscreen::onPress()
 {
-    set(DISPPARAM_PATH, DISPPARAM_HBM_FOD_ON);
+    set(kDispParamPath, kDispParamHbmFodOn);
 
     xiaomiFingerprintService->extCmd(COMMAND_NIT, PARAM_NIT_FOD);
 
@@ -129,7 +129,7 @@ Return<void> FingerprintInscreen::onPress()
 
 Return<void> FingerprintInscreen::onRelease()
 {
-    set(DISPPARAM_PATH, DISPPARAM_HBM_FOD_OFF);
+    set(kDispParamPath, kDispParamHbmFodOff);
 
     xiaomiFingerprintService->extCmd(COMMAND_NIT, PARAM_NIT_NONE);
 
